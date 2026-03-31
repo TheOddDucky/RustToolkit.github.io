@@ -81,12 +81,12 @@
 
   .results-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .res-header {
-    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    display: grid; grid-template-columns: 2.4fr 1fr;
     padding: 8px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
     font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase;
   }
   .result-row {
-    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    display: grid; grid-template-columns: 2.4fr 1fr;
     padding: 11px 14px; border-bottom: 1px solid var(--border); align-items: center;
   }
   .result-row:last-child { border-bottom: none; }
@@ -238,10 +238,6 @@ function summarizeTools(counts) {
     .map(x => `${x.qty}× ${x.name}`);
 }
 
-function totalItems(counts) {
-  return Object.values(counts).reduce((sum, n) => sum + n, 0);
-}
-
 let raidList = [];
 let uid = 0;
 
@@ -356,13 +352,12 @@ function renderResults() {
       <div class="struct-section">
         <div class="ss-title">Entire raid list<span> · all structures combined</span></div>
         <div class="results-panel">
-          <div class="res-header"><div>Explosives</div><div>Amount</div><div>Note</div></div>
+          <div class="res-header"><div>Explosives</div><div>Note</div></div>
           <div class="result-row best">
             <div>
               <div class="combo-name hl">${optimalSummary.join(' + ') || '—'}<span class="badge opt">optimal</span></div>
               <div class="combo-sub">Summed explosive counts from each structure's best combo</div>
             </div>
-            <div class="sval hl">${fmt(totalItems(optimalCounts))}</div>
             <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">fewest sulfur</div>
           </div>
           ${!isSame ? `
@@ -371,7 +366,6 @@ function renderResults() {
               <div class="combo-name">${satchelSummary.join(' + ') || '—'}<span class="badge sat">satchels</span></div>
               <div class="combo-sub">Satchel count for the same full raid list</div>
             </div>
-            <div class="sval shl">${fmt(totalItems(satchelCounts))}</div>
             <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(saved)} sulfur</div>
           </div>` : ''}
         </div>
