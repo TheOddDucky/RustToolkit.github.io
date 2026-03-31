@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Rust Raid Calculator</title>
+<title>Rust Raid Toolkit</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -81,12 +81,12 @@
 
   .results-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .res-header {
-    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    display: grid; grid-template-columns: 2.4fr 1fr;
     padding: 8px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
     font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase;
   }
   .result-row {
-    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    display: grid; grid-template-columns: 2.4fr 1fr;
     padding: 11px 14px; border-bottom: 1px solid var(--border); align-items: center;
   }
   .result-row:last-child { border-bottom: none; }
@@ -114,6 +114,24 @@
   .ss-title { font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 6px; }
   .ss-title span { color: var(--text3); }
 
+  .tabs { display:flex; gap:8px; margin: 1rem 0 1.25rem; }
+  .tab-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text2);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .tab-btn.active { color: var(--accent2); border-color: var(--accent2); background: rgba(181,123,61,0.1); }
+  .tab-content.hidden { display: none; }
+
+  .kit-layout { display:grid; grid-template-columns: 1.5fr 1fr; gap: 1rem; }
+  .kit-group { margin-bottom: 1rem; }
+  .kit-group:last-child { margin-bottom: 0; }
+  .kit-title { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing:0.08em; }
+  .kit-row { display:grid; grid-template-columns: 1fr auto; gap: 10px; align-items:center; padding: 6px 0; border-bottom:1px dashed var(--border); }
+  .kit-row:last-child { border-bottom:none; }
+  .kit-row label { font-size: 13px; color: var(--text2); }
+  .kit-qty { width: 62px; background:#0b0d0c; color:var(--text); border:1px solid var(--border); border-radius:4px; padding: 4px 6px; text-align:center; }
+
   .empty { padding: 2.5rem; text-align: center; color: var(--text3); font-size: 13px; font-family: var(--mono); }
 </style>
 </head>
@@ -121,24 +139,44 @@
 <div class="page">
   <header>
     <div class="eyebrow">// rust toolkit</div>
-    <h1>Raid Calculator</h1>
+    <h1>Raid Toolkit</h1>
     <p>Add structures to your raid list and get the optimal explosive combination</p>
   </header>
 
-  <div class="layout">
-    <div class="panel">
-      <div class="panel-title">// structures</div>
-      <div id="structList"></div>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabRaid">Raid Planner</button>
+    <button class="tab-btn" id="tabKit">Kit Planner</button>
+  </div>
 
-    <div class="right-col">
+  <div class="tab-content" id="raidTabContent">
+    <div class="layout">
       <div class="panel">
-        <div class="panel-title">// raid list</div>
-        <div class="raid-list" id="raidList">
-          <div class="empty-list">No structures added — click + to add</div>
-        </div>
+        <div class="panel-title">// structures</div>
+        <div id="structList"></div>
       </div>
-      <div id="resultsWrap"></div>
+
+      <div class="right-col">
+        <div class="panel">
+          <div class="panel-title">// raid list</div>
+          <div class="raid-list" id="raidList">
+            <div class="empty-list">No structures added — click + to add</div>
+          </div>
+        </div>
+        <div id="resultsWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content hidden" id="kitTabContent">
+    <div class="kit-layout">
+      <div class="panel">
+        <div class="panel-title">// kit items</div>
+        <div id="kitList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">// kit totals</div>
+        <div id="kitSummary" class="empty-list">No kit items selected yet</div>
+      </div>
     </div>
   </div>
 </div>
@@ -175,6 +213,59 @@ const TOOLS = [
          wood_door:11,metal_door:3.97,armored_door:3.19,garage_door:4.0,ladder_hatch:3.97,auto_turret:10,metal_barric:3.64} },
 ];
 
+const MATERIAL_COSTS = {
+  c4:      { metal_fragments: 200, low_grade_fuel: 60, cloth: 5, tech_trash: 2 },
+  rocket:  { metal_fragments: 100, low_grade_fuel: 30, metal_pipe: 2 },
+  satchel: { metal_fragments: 80, cloth: 4, rope: 1, beancan_grenade: 4 },
+  expammo: { metal_fragments: 5, gunpowder: 10 },
+};
+
+const RESOURCE_COSTS = {
+  c4:      { sulfur: 2200, charcoal: 3000, metal_fragments: 200 },
+  rocket:  { sulfur: 1400, charcoal: 1800, metal_fragments: 100 },
+  satchel: { sulfur: 480,  charcoal: 720,  metal_fragments: 80 },
+  expammo: { sulfur: 25,   charcoal: 30,   metal_fragments: 5 },
+};
+
+const NODE_YIELDS = {
+  sulfur: 300,
+  metal_ore: 600,
+  stone: 1000,
+  wood: 1000,
+};
+
+const WOOD_PER_CHARCOAL = 1 / 0.75;
+
+const EXP_AMMO_CLEANUP_HP_LIMIT = 180;
+const EXP_AMMO_CLEANUP_COUNT_LIMIT = 40;
+const EXP_AMMO_SOFT_PENALTY = 15;
+
+const KIT_ITEMS = {
+  Weapons: [
+    'Assault Rifle','Bolt Action Rifle','L96 Rifle','LR-300 Assault Rifle','M39 Rifle','MP5A4','Custom SMG','Thompson',
+    'Semi-Automatic Rifle','Semi-Automatic Pistol','Python Revolver','M92 Pistol','Revolver','Double Barrel Shotgun',
+    'Pump Shotgun','Spas-12 Shotgun','Waterpipe Shotgun','Rocket Launcher','Flame Thrower','Nailgun'
+  ],
+  Ammo: [
+    '5.56 Rifle Ammo','Explosive 5.56 Rifle Ammo','HV 5.56 Rifle Ammo','Incendiary 5.56 Rifle Ammo','Pistol Bullet',
+    'HV Pistol Ammo','Incendiary Pistol Bullet','Buckshot','Slug','Handmade Shell','12 Gauge Incendiary Shell','Rocket',
+    'HV Rocket','Incendiary Rocket','Timed Explosive Charge','Satchel Charge','Smoke Grenade','F1 Grenade','Beancan Grenade'
+  ],
+  Clothing: [
+    'Burlap Headwrap','Burlap Shirt','Burlap Trousers','Wood Armor Helmet','Wood Armor Pants','Wood Chestplate',
+    'Coffee Can Helmet','Road Sign Kilt','Road Sign Jacket','Metal Facemask','Metal Chest Plate','Hoodie','Pants','Jacket',
+    'Gloves','Boots','Bandana Mask','Wolf Headdress','Hazmat Suit'
+  ],
+  Tools: [
+    'Stone Hatchet','Stone Pickaxe','Hatchet','Pickaxe','Hammer','Building Plan','Torch','Salvaged Hammer',
+    'Jackhammer','Chainsaw','Combat Knife','Bone Knife','Machete','Spear','Stone Spear','Binoculars'
+  ],
+  Food: [
+    'Cooked Wolf Meat','Cooked Bear Meat','Cooked Deer Meat','Cooked Pork','Cooked Chicken','Fish',
+    'Chocolate Bar','Granola Bar','Apple','Pumpkin','Corn','Mushroom','Can of Beans','Tuna Can','Water Bottle'
+  ]
+};
+
 function fmt(n) { return Math.round(n).toLocaleString(); }
 
 function findOptimal(sid, totalHp) {
@@ -191,7 +282,10 @@ function findOptimal(sid, totalHp) {
       if (rem < 0) break;
       if (rem === 0) {
         const s = np * primary.sulfur;
-        if (!best || s < best.sulfur) best = { np, primary, ns:0, secondary:null, sulfur:s };
+        const score = s;
+        if (!best || score < best.score || (score === best.score && s < best.sulfur)) {
+          best = { np, primary, ns:0, secondary:null, sulfur:s, score };
+        }
         continue;
       }
       all.forEach(secondary => {
@@ -200,7 +294,15 @@ function findOptimal(sid, totalHp) {
         if (!dsS) return;
         const ns = Math.ceil(rem / dsS);
         const s = np * primary.sulfur + ns * secondary.sulfur;
-        if (!best || s < best.sulfur) best = { np, primary, ns, secondary, sulfur:s };
+        if (secondary.id === 'expammo') {
+          if (np === 0) return;
+          if (rem > EXP_AMMO_CLEANUP_HP_LIMIT) return;
+          if (ns > EXP_AMMO_CLEANUP_COUNT_LIMIT) return;
+        }
+        const score = s + (secondary.id === 'expammo' ? ns * EXP_AMMO_SOFT_PENALTY : 0);
+        if (!best || score < best.score || (score === best.score && s < best.sulfur)) {
+          best = { np, primary, ns, secondary, sulfur:s, score };
+        }
       });
     }
   });
@@ -231,8 +333,78 @@ function comboSub(c) {
   return parts.join(' + ');
 }
 
+function summarizeTools(counts) {
+  return TOOLS
+    .map(t => ({ name: t.name, qty: counts[t.id] || 0 }))
+    .filter(x => x.qty > 0)
+    .map(x => `${x.qty}× ${x.name}`);
+}
+
+function aggregateMaterials(counts) {
+  const totals = {};
+  Object.entries(counts).forEach(([toolId, qty]) => {
+    const mats = MATERIAL_COSTS[toolId];
+    if (!mats || qty <= 0) return;
+    Object.entries(mats).forEach(([mat, amount]) => {
+      totals[mat] = (totals[mat] || 0) + amount * qty;
+    });
+  });
+  return totals;
+}
+
+function summarizeMaterials(materials) {
+  const labels = {
+    metal_fragments: 'Metal frags',
+    low_grade_fuel: 'Low grade',
+    cloth: 'Cloth',
+    tech_trash: 'Tech trash',
+    metal_pipe: 'Pipes',
+    rope: 'Rope',
+    beancan_grenade: 'Bean cans',
+    gunpowder: 'Gunpowder',
+  };
+  return Object.entries(labels)
+    .filter(([id]) => (materials[id] || 0) > 0)
+    .map(([id, name]) => `${fmt(materials[id])} ${name}`);
+}
+
+function summarizeComponents(materials) {
+  const components = [
+    ['tech_trash', 'Tech trash'],
+    ['metal_pipe', 'Pipes'],
+    ['rope', 'Rope'],
+    ['beancan_grenade', 'Bean cans'],
+    ['cloth', 'Cloth'],
+  ];
+  return components
+    .filter(([id]) => (materials[id] || 0) > 0)
+    .map(([id, name]) => `${fmt(materials[id])} ${name}`);
+}
+
+function aggregateResourceNeeds(counts) {
+  const totals = { sulfur: 0, charcoal: 0, metal_fragments: 0 };
+  Object.entries(counts).forEach(([toolId, qty]) => {
+    const costs = RESOURCE_COSTS[toolId];
+    if (!costs || qty <= 0) return;
+    totals.sulfur += (costs.sulfur || 0) * qty;
+    totals.charcoal += (costs.charcoal || 0) * qty;
+    totals.metal_fragments += (costs.metal_fragments || 0) * qty;
+  });
+
+  totals.wood_for_charcoal = Math.ceil(totals.charcoal * WOOD_PER_CHARCOAL);
+  totals.metal_ore = totals.metal_fragments;
+  totals.stone = 0;
+
+  totals.sulfur_nodes = Math.ceil(totals.sulfur / NODE_YIELDS.sulfur);
+  totals.metal_nodes = Math.ceil(totals.metal_ore / NODE_YIELDS.metal_ore);
+  totals.stone_nodes = Math.ceil(totals.stone / NODE_YIELDS.stone);
+  totals.wood_nodes = Math.ceil(totals.wood_for_charcoal / NODE_YIELDS.wood);
+  return totals;
+}
+
 let raidList = [];
 let uid = 0;
+let kitState = {};
 
 function addStructure(sid) {
   const existing = raidList.find(x => x.sid === sid);
@@ -302,56 +474,74 @@ function renderResults() {
 
   let totalOptimal = 0;
   let totalSatchel = 0;
-  let sections = '';
+  const optimalCounts = {};
+  const satchelCounts = {};
 
   raidList.forEach(item => {
-    const totalHp = item.hp * item.qty;
-    const optimal = findOptimal(item.sid, totalHp);
-    const satchOnly = findSatchelOnly(item.sid, totalHp);
-    if (optimal) totalOptimal += optimal.sulfur;
-    if (satchOnly) totalSatchel += satchOnly.sulfur;
+    const optimal = findOptimal(item.sid, item.hp);
+    const satchOnly = findSatchelOnly(item.sid, item.hp);
+    if (optimal) {
+      totalOptimal += optimal.sulfur * item.qty;
+      if (optimal.primary && optimal.np > 0) {
+        optimalCounts[optimal.primary.id] = (optimalCounts[optimal.primary.id] || 0) + (optimal.np * item.qty);
+      }
+      if (optimal.secondary && optimal.ns > 0) {
+        optimalCounts[optimal.secondary.id] = (optimalCounts[optimal.secondary.id] || 0) + (optimal.ns * item.qty);
+      }
+    }
+    if (satchOnly) {
+      totalSatchel += satchOnly.sulfur * item.qty;
+      if (satchOnly.secondary && satchOnly.ns > 0) {
+        satchelCounts[satchOnly.secondary.id] = (satchelCounts[satchOnly.secondary.id] || 0) + (satchOnly.ns * item.qty);
+      }
+    }
+  });
 
-    const isSame = optimal && satchOnly && optimal.sulfur === satchOnly.sulfur;
-    const diff = (satchOnly && optimal) ? satchOnly.sulfur - optimal.sulfur : 0;
+  const saved = totalSatchel - totalOptimal;
+  const isSame = totalOptimal === totalSatchel;
+  const optimalSummary = summarizeTools(optimalCounts);
+  const satchelSummary = summarizeTools(satchelCounts);
+  const optimalMatTotals = aggregateMaterials(optimalCounts);
+  const optimalComponents = summarizeComponents(optimalMatTotals);
+  const mining = aggregateResourceNeeds(optimalCounts);
 
-    sections += `
+  wrap.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">// whole list comparison</div>
       <div class="struct-section">
-        <div class="ss-title">${item.qty > 1 ? item.qty + '× ' : ''}${item.name}<span> · ${fmt(totalHp)} HP</span></div>
+        <div class="ss-title">Entire raid list<span> · all structures combined</span></div>
         <div class="results-panel">
-          <div class="res-header"><div>Combination</div><div>Sulfur</div><div>Note</div></div>
+          <div class="res-header"><div>Explosives</div><div>Note</div></div>
           <div class="result-row best">
             <div>
-              <div class="combo-name hl">${comboLabel(optimal)}<span class="badge opt">optimal</span></div>
-              <div class="combo-sub">${comboSub(optimal)}</div>
+              <div class="combo-name hl">${optimalSummary.join(' + ') || '—'}<span class="badge opt">optimal</span></div>
+              <div class="combo-sub">Summed explosive counts from each structure's best combo</div>
             </div>
-            <div class="sval hl">${optimal ? fmt(optimal.sulfur) : '—'}</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">cheapest</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">fewest sulfur</div>
           </div>
           ${!isSame ? `
           <div class="result-row satch">
             <div>
-              <div class="combo-name">${comboLabel(satchOnly)}<span class="badge sat">satchels</span></div>
-              <div class="combo-sub">${comboSub(satchOnly)}</div>
+              <div class="combo-name">${satchelSummary.join(' + ') || '—'}<span class="badge sat">satchels</span></div>
+              <div class="combo-sub">Satchel count for the same full raid list</div>
             </div>
-            <div class="sval shl">${satchOnly ? fmt(satchOnly.sulfur) : '—'}</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(diff)}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(saved)} sulfur</div>
           </div>` : ''}
         </div>
-      </div>`;
-  });
-
-  const saved = totalSatchel - totalOptimal;
-
-  wrap.innerHTML = `
-    <div class="panel">
-      <div class="panel-title">// totals</div>
-      <div class="summary-grid">
-        <div class="stat"><div class="stat-label">Optimal sulfur</div><div class="stat-val acc">${fmt(totalOptimal)}</div></div>
-        <div class="stat"><div class="stat-label">Satchels only</div><div class="stat-val">${fmt(totalSatchel)}</div></div>
-        <div class="stat"><div class="stat-label">Saved vs satchels</div><div class="stat-val" style="color:var(--green)">${fmt(saved)}</div></div>
       </div>
     </div>
-    <div style="margin-top:1rem;">${sections}</div>
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-title">// mining estimate</div>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text2);line-height:1.7;">
+        <div style="margin-bottom:8px;color:var(--text3);">Estimated raw resources for optimal plan</div>
+        <div><span style="font-size:14px;color:var(--text)">Sulfur:</span> <span style="color:var(--accent2)">${fmt(mining.sulfur)}</span> (~${fmt(mining.sulfur_nodes)} nodes)</div>
+        <div><span style="font-size:14px;color:var(--text)">Metal ore:</span> <span style="color:var(--accent2)">${fmt(mining.metal_ore)}</span> (~${fmt(mining.metal_nodes)} nodes)</div>
+        <div><span style="font-size:14px;color:var(--text)">Stone:</span> <span style="color:var(--accent2)">${fmt(mining.stone)}</span> (~${fmt(mining.stone_nodes)} nodes)</div>
+        <div><span style="font-size:14px;color:var(--text)">Charcoal total:</span> <span style="color:var(--accent2)">${fmt(mining.charcoal)}</span></div>
+        <div><span style="font-size:14px;color:var(--text)">Wood for charcoal:</span> <span style="color:var(--accent2)">${fmt(mining.wood_for_charcoal)}</span> (~${fmt(mining.wood_nodes)} wood nodes)</div>
+        <div style="margin-top:8px;"><span style="color:var(--text3)">Components:</span> ${optimalComponents.join(' · ') || '—'}</div>
+      </div>
+    </div>
   `;
 }
 
@@ -360,8 +550,78 @@ function renderAll() {
   renderResults();
 }
 
+function renderKitPlanner() {
+  const list = document.getElementById('kitList');
+  list.innerHTML = '';
+  Object.entries(KIT_ITEMS).forEach(([group, items]) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'kit-group';
+    wrap.innerHTML = `<div class="kit-title">${group}</div>`;
+    items.forEach(name => {
+      const key = `${group}::${name}`;
+      if (kitState[key] === undefined) kitState[key] = 0;
+      const row = document.createElement('div');
+      row.className = 'kit-row';
+      row.innerHTML = `<label>${name}</label><input class="kit-qty" type="number" min="0" value="${kitState[key]}" data-key="${key}" />`;
+      wrap.appendChild(row);
+    });
+    list.appendChild(wrap);
+  });
+
+  list.querySelectorAll('.kit-qty').forEach(inp => {
+    inp.addEventListener('change', e => {
+      kitState[e.target.dataset.key] = Math.max(0, parseInt(e.target.value) || 0);
+      renderKitSummary();
+    });
+  });
+  renderKitSummary();
+}
+
+function renderKitSummary() {
+  const summary = document.getElementById('kitSummary');
+  const entries = Object.entries(kitState).filter(([, qty]) => qty > 0);
+  if (!entries.length) {
+    summary.innerHTML = 'No kit items selected yet';
+    return;
+  }
+
+  const totalItems = entries.reduce((sum, [, qty]) => sum + qty, 0);
+  const byGroup = {};
+  entries.forEach(([key, qty]) => {
+    const group = key.split('::')[0];
+    byGroup[group] = (byGroup[group] || 0) + qty;
+  });
+
+  summary.innerHTML = `
+    <div class="summary-grid">
+      <div class="stat"><div class="stat-label">Total items</div><div class="stat-val acc">${fmt(totalItems)}</div></div>
+      ${Object.entries(byGroup).map(([g, n]) => `<div class="stat"><div class="stat-label">${g}</div><div class="stat-val">${fmt(n)}</div></div>`).join('')}
+    </div>
+  `;
+}
+
+function setupTabs() {
+  const raidBtn = document.getElementById('tabRaid');
+  const kitBtn = document.getElementById('tabKit');
+  const raidTab = document.getElementById('raidTabContent');
+  const kitTab = document.getElementById('kitTabContent');
+
+  function setTab(tab) {
+    const showRaid = tab === 'raid';
+    raidTab.classList.toggle('hidden', !showRaid);
+    kitTab.classList.toggle('hidden', showRaid);
+    raidBtn.classList.toggle('active', showRaid);
+    kitBtn.classList.toggle('active', !showRaid);
+  }
+
+  raidBtn.addEventListener('click', () => setTab('raid'));
+  kitBtn.addEventListener('click', () => setTab('kit'));
+}
+
 renderStructList();
 renderAll();
+renderKitPlanner();
+setupTabs();
 </script>
 </body>
 </html>
