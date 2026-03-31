@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Rust Raid Calculator</title>
+<title>Rust Raid Toolkit</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -121,7 +121,7 @@
 <div class="page">
   <header>
     <div class="eyebrow">// rust toolkit</div>
-    <h1>Raid Calculator</h1>
+    <h1>Raid Toolkit</h1>
     <p>Add structures to your raid list and get the optimal explosive combination</p>
   </header>
 
@@ -302,7 +302,6 @@ function renderResults() {
 
   let totalOptimal = 0;
   let totalSatchel = 0;
-  let sections = '';
 
   raidList.forEach(item => {
     const totalHp = item.hp * item.qty;
@@ -310,37 +309,10 @@ function renderResults() {
     const satchOnly = findSatchelOnly(item.sid, totalHp);
     if (optimal) totalOptimal += optimal.sulfur;
     if (satchOnly) totalSatchel += satchOnly.sulfur;
-
-    const isSame = optimal && satchOnly && optimal.sulfur === satchOnly.sulfur;
-    const diff = (satchOnly && optimal) ? satchOnly.sulfur - optimal.sulfur : 0;
-
-    sections += `
-      <div class="struct-section">
-        <div class="ss-title">${item.qty > 1 ? item.qty + '× ' : ''}${item.name}<span> · ${fmt(totalHp)} HP</span></div>
-        <div class="results-panel">
-          <div class="res-header"><div>Combination</div><div>Sulfur</div><div>Note</div></div>
-          <div class="result-row best">
-            <div>
-              <div class="combo-name hl">${comboLabel(optimal)}<span class="badge opt">optimal</span></div>
-              <div class="combo-sub">${comboSub(optimal)}</div>
-            </div>
-            <div class="sval hl">${optimal ? fmt(optimal.sulfur) : '—'}</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">cheapest</div>
-          </div>
-          ${!isSame ? `
-          <div class="result-row satch">
-            <div>
-              <div class="combo-name">${comboLabel(satchOnly)}<span class="badge sat">satchels</span></div>
-              <div class="combo-sub">${comboSub(satchOnly)}</div>
-            </div>
-            <div class="sval shl">${satchOnly ? fmt(satchOnly.sulfur) : '—'}</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(diff)}</div>
-          </div>` : ''}
-        </div>
-      </div>`;
   });
 
   const saved = totalSatchel - totalOptimal;
+  const isSame = totalOptimal === totalSatchel;
 
   wrap.innerHTML = `
     <div class="panel">
@@ -351,7 +323,32 @@ function renderResults() {
         <div class="stat"><div class="stat-label">Saved vs satchels</div><div class="stat-val" style="color:var(--green)">${fmt(saved)}</div></div>
       </div>
     </div>
-    <div style="margin-top:1rem;">${sections}</div>
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-title">// whole list comparison</div>
+      <div class="struct-section">
+        <div class="ss-title">Entire raid list<span> · all structures combined</span></div>
+        <div class="results-panel">
+          <div class="res-header"><div>Combination</div><div>Sulfur</div><div>Note</div></div>
+          <div class="result-row best">
+            <div>
+              <div class="combo-name hl">Per-structure optimal totals<span class="badge opt">optimal</span></div>
+              <div class="combo-sub">Best combination selected for each structure, then summed</div>
+            </div>
+            <div class="sval hl">${fmt(totalOptimal)}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">cheapest</div>
+          </div>
+          ${!isSame ? `
+          <div class="result-row satch">
+            <div>
+              <div class="combo-name">Satchels only<span class="badge sat">satchels</span></div>
+              <div class="combo-sub">Satchels used across the entire raid list</div>
+            </div>
+            <div class="sval shl">${fmt(totalSatchel)}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(saved)}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>
   `;
 }
 
