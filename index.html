@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rust Raid Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141716;
+    --surface2: #1a1e1c;
+    --border: #2a2f2c;
+    --border2: #3a4038;
+    --accent: #c8501a;
+    --accent2: #e06030;
+    --text: #d4cfc8;
+    --text2: #8a8f88;
+    --text3: #555a54;
+    --green: #4a9e6a;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+  header .eyebrow { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: #eae6de; }
+  header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 680px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem; }
+  .panel-title { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1rem; }
+
+  .cat-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin: 10px 0 4px 2px; }
+  .cat-label:first-child { margin-top: 0; }
+
+  .struct-btn {
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    padding: 7px 8px; display: flex; align-items: center; gap: 6px;
+    cursor: pointer; width: 100%; text-align: left; transition: background 0.1s;
+  }
+  .struct-btn:hover { background: var(--surface2); border-color: var(--border); }
+  .struct-btn .sname { font-size: 13px; color: var(--text); flex: 1; }
+  .struct-btn .shp { font-family: var(--mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .add-btn {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 3px;
+    background: rgba(200,80,26,0.12); border: 1px solid rgba(200,80,26,0.3);
+    color: var(--accent); font-family: var(--mono); font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .add-btn:hover { background: rgba(200,80,26,0.28); }
+
+  .right-col { display: flex; flex-direction: column; gap: 1rem; }
+
+  .raid-list { display: flex; flex-direction: column; gap: 4px; }
+  .raid-item {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 6px 10px;
+  }
+  .raid-item .ri-name { flex: 1; font-size: 13px; color: var(--text); }
+  .raid-item .ri-qty {
+    width: 46px; background: var(--bg); border: 1px solid var(--border2);
+    border-radius: 3px; color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 3px 6px; outline: none; text-align: center;
+  }
+  .raid-item .ri-qty:focus { border-color: var(--accent); }
+  .raid-item .ri-hp { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .remove-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; transition: color 0.1s; }
+  .remove-btn:hover { color: var(--accent); }
+  .empty-list { font-family: var(--mono); font-size: 12px; color: var(--text3); padding: 8px 2px; }
+
+  .results-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .res-header {
+    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    padding: 8px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .result-row {
+    display: grid; grid-template-columns: 1.8fr 1fr 1fr;
+    padding: 11px 14px; border-bottom: 1px solid var(--border); align-items: center;
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-row.best { border-left: 2px solid var(--accent); padding-left: 12px; }
+  .result-row.satch { border-left: 2px solid var(--green); padding-left: 12px; }
+  .combo-name { font-size: 13px; color: var(--text); }
+  .combo-name.hl { color: #eae6de; }
+  .combo-sub { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .sval { font-family: var(--mono); font-size: 13px; color: var(--text2); }
+  .sval.hl { color: var(--accent2); font-weight: 600; }
+  .sval.shl { color: var(--green); }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
+  .badge.opt { background: rgba(200,80,26,0.15); color: var(--accent); border: 1px solid rgba(200,80,26,0.3); }
+  .badge.sat { background: rgba(74,158,106,0.12); color: var(--green); border: 1px solid rgba(74,158,106,0.3); }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1rem; }
+  @media (max-width: 500px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+  .stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; }
+  .stat-label { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .stat-val { font-family: var(--mono); font-size: 18px; color: var(--text); }
+  .stat-val.acc { color: var(--accent2); }
+
+  .struct-section { margin-bottom: 1rem; }
+  .struct-section:last-child { margin-bottom: 0; }
+  .ss-title { font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+  .ss-title span { color: var(--text3); }
+
+  .empty { padding: 2.5rem; text-align: center; color: var(--text3); font-size: 13px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">// rust toolkit</div>
+    <h1>Raid Calculator</h1>
+    <p>Add structures to your raid list and get the optimal explosive combination</p>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-title">// structures</div>
+      <div id="structList"></div>
+    </div>
+
+    <div class="right-col">
+      <div class="panel">
+        <div class="panel-title">// raid list</div>
+        <div class="raid-list" id="raidList">
+          <div class="empty-list">No structures added — click + to add</div>
+        </div>
+      </div>
+      <div id="resultsWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STRUCTURES = [
+  { id:'wood_wall',    name:'Wood wall',                cat:'Walls',       hp:250  },
+  { id:'stone_wall',   name:'Stone wall',               cat:'Walls',       hp:500  },
+  { id:'metal_wall',   name:'Sheet metal wall',         cat:'Walls',       hp:1000 },
+  { id:'armored_wall', name:'Armored wall',             cat:'Walls',       hp:2000 },
+  { id:'hext_wood',    name:'High external wood wall',  cat:'Walls',       hp:500  },
+  { id:'hext_stone',   name:'High external stone wall', cat:'Walls',       hp:500  },
+  { id:'wood_door',    name:'Wooden door',              cat:'Doors',       hp:200  },
+  { id:'metal_door',   name:'Sheet metal door',         cat:'Doors',       hp:250  },
+  { id:'armored_door', name:'Armored door',             cat:'Doors',       hp:800  },
+  { id:'garage_door',  name:'Garage door',              cat:'Doors',       hp:600  },
+  { id:'ladder_hatch', name:'Ladder hatch',             cat:'Doors',       hp:250  },
+  { id:'auto_turret',  name:'Auto turret',              cat:'Deployables', hp:1000 },
+  { id:'metal_barric', name:'Metal barricade',          cat:'Deployables', hp:400  },
+];
+
+const TOOLS = [
+  { id:'c4',      name:'C4',        sulfur:2200, finisher:false,
+    dmg:{wood_wall:275,stone_wall:275,metal_wall:275,armored_wall:275,hext_wood:325,hext_stone:275,
+         wood_door:250,metal_door:275,armored_door:275,garage_door:325,ladder_hatch:275,auto_turret:500,metal_barric:500} },
+  { id:'rocket',  name:'Rocket',    sulfur:1400, finisher:false,
+    dmg:{wood_wall:145,stone_wall:130,metal_wall:130,armored_wall:137,hext_wood:270,hext_stone:130,
+         wood_door:250,metal_door:145,armored_door:165,garage_door:220,ladder_hatch:145,auto_turret:300,metal_barric:300} },
+  { id:'satchel', name:'Satchel',   sulfur:480,  finisher:false,
+    dmg:{wood_wall:84,stone_wall:50,metal_wall:44,armored_wall:44,hext_wood:84,hext_stone:50,
+         wood_door:120,metal_door:63,armored_door:54,garage_door:67,ladder_hatch:63,auto_turret:200,metal_barric:110} },
+  { id:'expammo', name:'Exp. ammo', sulfur:25,   finisher:true,
+    dmg:{wood_wall:5.21,stone_wall:2.37,metal_wall:2.46,armored_wall:2.48,hext_wood:5.37,hext_stone:2.72,
+         wood_door:11,metal_door:3.97,armored_door:3.19,garage_door:4.0,ladder_hatch:3.97,auto_turret:10,metal_barric:3.64} },
+];
+
+function fmt(n) { return Math.round(n).toLocaleString(); }
+
+function findOptimal(sid, totalHp) {
+  const mains = TOOLS.filter(t => !t.finisher);
+  const all = TOOLS;
+  let best = null;
+
+  mains.forEach(primary => {
+    const dpP = primary.dmg[sid];
+    if (!dpP) return;
+    const maxP = Math.ceil(totalHp / dpP);
+    for (let np = 0; np <= maxP; np++) {
+      const rem = totalHp - np * dpP;
+      if (rem < 0) break;
+      if (rem === 0) {
+        const s = np * primary.sulfur;
+        if (!best || s < best.sulfur) best = { np, primary, ns:0, secondary:null, sulfur:s };
+        continue;
+      }
+      all.forEach(secondary => {
+        if (secondary.id === primary.id) return;
+        const dsS = secondary.dmg[sid];
+        if (!dsS) return;
+        const ns = Math.ceil(rem / dsS);
+        const s = np * primary.sulfur + ns * secondary.sulfur;
+        if (!best || s < best.sulfur) best = { np, primary, ns, secondary, sulfur:s };
+      });
+    }
+  });
+  return best;
+}
+
+function findSatchelOnly(sid, totalHp) {
+  const satchel = TOOLS.find(t => t.id === 'satchel');
+  const dmg = satchel.dmg[sid];
+  if (!dmg) return null;
+  const ns = Math.ceil(totalHp / dmg);
+  return { np:0, primary:null, ns, secondary:satchel, sulfur: ns * satchel.sulfur };
+}
+
+function comboLabel(c) {
+  if (!c) return '—';
+  const parts = [];
+  if (c.np > 0) parts.push(`${c.np}× ${c.primary.name}`);
+  if (c.ns > 0) parts.push(`${c.ns}× ${c.secondary.name}`);
+  return parts.join(' + ') || '—';
+}
+
+function comboSub(c) {
+  if (!c) return '';
+  const parts = [];
+  if (c.np > 0) parts.push(`${fmt(c.np * c.primary.sulfur)} sulfur`);
+  if (c.ns > 0) parts.push(`${fmt(c.ns * c.secondary.sulfur)} sulfur`);
+  return parts.join(' + ');
+}
+
+let raidList = [];
+let uid = 0;
+
+function addStructure(sid) {
+  const existing = raidList.find(x => x.sid === sid);
+  if (existing) { existing.qty++; }
+  else {
+    const s = STRUCTURES.find(x => x.id === sid);
+    raidList.push({ uid: uid++, sid, name: s.name, hp: s.hp, qty: 1 });
+  }
+  renderAll();
+}
+
+function removeStructure(id) {
+  raidList = raidList.filter(x => x.uid !== id);
+  renderAll();
+}
+
+function updateQty(id, val) {
+  const item = raidList.find(x => x.uid === id);
+  if (item) item.qty = Math.max(1, parseInt(val) || 1);
+  renderAll();
+}
+
+function renderStructList() {
+  const el = document.getElementById('structList');
+  el.innerHTML = '';
+  const cats = [...new Set(STRUCTURES.map(s => s.cat))];
+  cats.forEach(cat => {
+    const lbl = document.createElement('div');
+    lbl.className = 'cat-label';
+    lbl.textContent = cat;
+    el.appendChild(lbl);
+    STRUCTURES.filter(s => s.cat === cat).forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'struct-btn';
+      btn.innerHTML = `<span class="sname">${s.name}</span><span class="shp">${fmt(s.hp)} HP</span><span class="add-btn">+</span>`;
+      btn.onclick = () => addStructure(s.id);
+      el.appendChild(btn);
+    });
+  });
+}
+
+function renderRaidList() {
+  const el = document.getElementById('raidList');
+  if (!raidList.length) {
+    el.innerHTML = '<div class="empty-list">No structures added — click + to add</div>';
+    return;
+  }
+  el.innerHTML = raidList.map(item => `
+    <div class="raid-item">
+      <span class="ri-name">${item.name}</span>
+      <input class="ri-qty" type="number" value="${item.qty}" min="1" max="99" data-uid="${item.uid}" />
+      <span class="ri-hp">${fmt(item.hp * item.qty)} HP</span>
+      <button class="remove-btn" data-uid="${item.uid}">×</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('.ri-qty').forEach(inp => {
+    inp.addEventListener('change', e => { updateQty(+e.target.dataset.uid, e.target.value); });
+  });
+  el.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => { removeStructure(+e.target.dataset.uid); });
+  });
+}
+
+function renderResults() {
+  const wrap = document.getElementById('resultsWrap');
+  if (!raidList.length) { wrap.innerHTML = ''; return; }
+
+  let totalOptimal = 0;
+  let totalSatchel = 0;
+  let sections = '';
+
+  raidList.forEach(item => {
+    const totalHp = item.hp * item.qty;
+    const optimal = findOptimal(item.sid, totalHp);
+    const satchOnly = findSatchelOnly(item.sid, totalHp);
+    if (optimal) totalOptimal += optimal.sulfur;
+    if (satchOnly) totalSatchel += satchOnly.sulfur;
+
+    const isSame = optimal && satchOnly && optimal.sulfur === satchOnly.sulfur;
+    const diff = (satchOnly && optimal) ? satchOnly.sulfur - optimal.sulfur : 0;
+
+    sections += `
+      <div class="struct-section">
+        <div class="ss-title">${item.qty > 1 ? item.qty + '× ' : ''}${item.name}<span> · ${fmt(totalHp)} HP</span></div>
+        <div class="results-panel">
+          <div class="res-header"><div>Combination</div><div>Sulfur</div><div>Note</div></div>
+          <div class="result-row best">
+            <div>
+              <div class="combo-name hl">${comboLabel(optimal)}<span class="badge opt">optimal</span></div>
+              <div class="combo-sub">${comboSub(optimal)}</div>
+            </div>
+            <div class="sval hl">${optimal ? fmt(optimal.sulfur) : '—'}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">cheapest</div>
+          </div>
+          ${!isSame ? `
+          <div class="result-row satch">
+            <div>
+              <div class="combo-name">${comboLabel(satchOnly)}<span class="badge sat">satchels</span></div>
+              <div class="combo-sub">${comboSub(satchOnly)}</div>
+            </div>
+            <div class="sval shl">${satchOnly ? fmt(satchOnly.sulfur) : '—'}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">+${fmt(diff)}</div>
+          </div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  const saved = totalSatchel - totalOptimal;
+
+  wrap.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">// totals</div>
+      <div class="summary-grid">
+        <div class="stat"><div class="stat-label">Optimal sulfur</div><div class="stat-val acc">${fmt(totalOptimal)}</div></div>
+        <div class="stat"><div class="stat-label">Satchels only</div><div class="stat-val">${fmt(totalSatchel)}</div></div>
+        <div class="stat"><div class="stat-label">Saved vs satchels</div><div class="stat-val" style="color:var(--green)">${fmt(saved)}</div></div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;">${sections}</div>
+  `;
+}
+
+function renderAll() {
+  renderRaidList();
+  renderResults();
+}
+
+renderStructList();
+renderAll();
+</script>
+</body>
+</html>
